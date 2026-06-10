@@ -1,0 +1,46 @@
+steps:
+  - id: "lint"
+    name: "python:3.12-slim"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install --no-cache-dir ruff
+        ruff check src/ mock_api/ logging_service/ cloud_functions/
+
+  - id: "unit-tests"
+    name: "python:3.12-slim"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install --no-cache-dir -r requirements.txt -r requirements-mock.txt -r requirements-test.txt
+        pytest tests/unit/ -v --junitxml=test-results/unit.xml
+    waitFor: ["lint"]
+
+  - id: "integration-tests"
+    name: "python:3.12-slim"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install --no-cache-dir -r requirements.txt -r requirements-mock.txt -r requirements-test.txt
+        pytest tests/integration/ -v --junitxml=test-results/integration.xml
+    waitFor: ["unit-tests"]
+
+  - id: "build-orchestrator"
+    name: "gcr.io/cloud-builders/docker"
+    args: ["build", "-t", "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/orchestrator:${SHORT_SHA}", "-f", "docker/Dockerfile.orchestrator", "."]
+    waitFor: ["integration-tests"]
+
+  - id: "scan-orchestrator"
+    name: "aquasec/trivy:latest"
+    args: ["image", "--exit-code", "1", "--severity", "CRITICAL", "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/orchestrator:${SHORT_SHA}"]
+    waitFor: ["build-orchestrator"]
+
+substitutions:
+  _REGION: "us-central1"
+  _REPO: "brewfinance"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

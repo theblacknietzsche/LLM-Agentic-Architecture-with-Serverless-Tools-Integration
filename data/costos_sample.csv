@@ -1,0 +1,11 @@
+sabor,presentacion,costo_ingredientes,costo_envase,costo_mano_obra,costo_unitario_total
+mango,345ml,10.00,4.50,3.00,17.50
+fresa,345ml,11.50,4.50,3.00,19.00
+limon,345ml,8.80,4.00,3.00,15.80
+jengibre,345ml,13.00,4.50,3.00,20.50
+menta,345ml,9.50,4.50,3.00,17.00
+mango,1L,22.00,10.00,6.00,38.00
+fresa,1L,25.00,10.00,6.00,41.00
+limon,1L,19.00,9.50,6.00,34.50
+jengibre,1L,28.00,10.00,6.00,44.00
+menta,1L,21.00,10.00,6.00,37.00

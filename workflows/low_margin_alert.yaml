@@ -1,0 +1,22 @@
+main:
+  params: [input]
+  steps:
+    - build_message:
+        assign:
+          - alert_message:
+              tipo: "LOW_MARGIN_WARNING"
+              severidad: "WARNING"
+              mes: ${input.mes}
+              umbral_pct: ${input.umbral}
+              sabores_afectados: ${input.sabores_afectados}
+              recomendacion: "Revisar costos de producción o ajustar precios."
+              timestamp: ${time.format(sys.now())}
+
+    - log_alert:
+        call: sys.log
+        args:
+          json: ${alert_message}
+          severity: "WARNING"
+
+    - return_alert:
+        return: ${alert_message}

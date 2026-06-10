@@ -1,0 +1,67 @@
+main:
+  steps:
+    - init:
+        assign:
+          - base_url: ${sys.get_env("TOOLS_BASE_URL")}
+          - today: ${time.format(sys.now(), "America/Mexico_City")}
+          - week_end: ${text.substring(today, 0, 10)}
+
+    - read_weekly_sales:
+        try:
+          call: http.post
+          args:
+            url: ${base_url + "/api/v1/sheets/read"}
+            headers:
+              Content-Type: "application/json"
+            body:
+              request_id: ${"wf2-sales-" + week_end}
+              timestamp: ${today}
+              payload:
+                hoja: "Ventas"
+          result: sales_response
+        retry:
+          predicate: ${default_retry_predicate}
+          max_retries: 3
+          backoff:
+            initial_delay: 5
+            max_delay: 60
+            multiplier: 2
+
+    - generate_summary:
+        try:
+          call: http.post
+          args:
+            url: ${base_url + "/api/v1/calc"}
+            headers:
+              Content-Type: "application/json"
+            body:
+              request_id: ${"wf2-calc-" + week_end}
+              timestamp: ${today}
+              payload:
+                operacion: "resumen_periodo"
+                params:
+                  ventas: ${sales_response.body.data.registros}
+          result: summary_response
+        retry:
+          predicate: ${default_retry_predicate}
+          max_retries: 2
+          backoff:
+            initial_delay: 2
+            max_delay: 15
+            multiplier: 2
+
+    - return_result:
+        return:
+          status: "completed"
+          resumen: ${summary_response.body.data}
+
+default_retry_predicate:
+  params: [e]
+  steps:
+    - check:
+        switch:
+          - condition: ${e.code == 429 or e.code == 502 or e.code == 503}
+            return: true
+        next: no
+    - no:
+        return: false

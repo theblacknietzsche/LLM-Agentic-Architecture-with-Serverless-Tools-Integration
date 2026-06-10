@@ -1,0 +1,119 @@
+{
+  "tools": [
+    {
+      "function_declarations": [
+        {
+          "name": "sheets_reader",
+          "description": "Lee datos de ventas, costos o gastos desde Google Sheets. Usar siempre que se necesite consultar información financiera del negocio.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "hoja": {
+                "type": "string",
+                "description": "Hoja a consultar: 'Ventas', 'Costos' o 'Gastos'",
+                "enum": ["Ventas", "Costos", "Gastos"]
+              },
+              "filtros": {
+                "type": "object",
+                "description": "Filtros opcionales (mes, sabor, canal, presentacion, fecha_desde, fecha_hasta)",
+                "properties": {
+                  "mes": {"type": "string", "description": "Mes en formato YYYY-MM"},
+                  "sabor": {"type": "string"},
+                  "canal": {"type": "string", "enum": ["gimnasio", "redes"]},
+                  "presentacion": {"type": "string", "enum": ["345ml", "1L"]},
+                  "fecha_desde": {"type": "string", "description": "Fecha inicio YYYY-MM-DD"},
+                  "fecha_hasta": {"type": "string", "description": "Fecha fin YYYY-MM-DD"}
+                }
+              },
+              "campos": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Columnas a retornar. Si se omite, retorna todas."
+              }
+            },
+            "required": ["hoja"]
+          }
+        },
+        {
+          "name": "sheets_writer",
+          "description": "Registra una nueva venta o gasto en Google Sheets. Usar cuando el usuario quiere agregar un registro nuevo. NUNCA inventar datos: solo registrar lo que el usuario indica explícitamente.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "hoja": {
+                "type": "string",
+                "description": "Hoja destino: 'Ventas' o 'Gastos'. La hoja 'Costos' es solo lectura.",
+                "enum": ["Ventas", "Gastos"]
+              },
+              "registro": {
+                "type": "object",
+                "description": "Datos de la fila a insertar. Para Ventas: fecha, sabor, presentacion, cantidad, precio_unitario, canal. Para Gastos: fecha, categoria, descripcion, monto.",
+                "properties": {
+                  "fecha": {"type": "string", "description": "Fecha ISO 8601 (YYYY-MM-DD)"},
+                  "sabor": {"type": "string"},
+                  "presentacion": {"type": "string", "enum": ["345ml", "1L"]},
+                  "cantidad": {"type": "integer", "minimum": 1},
+                  "precio_unitario": {"type": "number", "minimum": 0.01},
+                  "canal": {"type": "string", "enum": ["gimnasio", "redes"]},
+                  "categoria": {"type": "string", "description": "Solo para gastos"},
+                  "descripcion": {"type": "string", "description": "Solo para gastos"},
+                  "monto": {"type": "number", "description": "Solo para gastos"}
+                }
+              },
+              "idempotency_key": {
+                "type": "string",
+                "description": "Clave única para evitar duplicados. Generar combinando fecha+sabor+cantidad+canal o fecha+categoria+monto."
+              }
+            },
+            "required": ["hoja", "registro", "idempotency_key"]
+          }
+        },
+        {
+          "name": "calculator",
+          "description": "Ejecuta cálculos financieros. SIEMPRE usar esta herramienta para operaciones aritméticas — nunca calcular mentalmente. Operaciones: margen_por_sabor, margen_por_canal, proyeccion_ventas, punto_equilibrio, resumen_periodo, comparar_presentaciones.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "operacion": {
+                "type": "string",
+                "description": "Tipo de cálculo a ejecutar",
+                "enum": [
+                  "margen_por_sabor",
+                  "margen_por_canal",
+                  "proyeccion_ventas",
+                  "punto_equilibrio",
+                  "resumen_periodo",
+                  "comparar_presentaciones"
+                ]
+              },
+              "params": {
+                "type": "object",
+                "description": "Datos de entrada para el cálculo. Estructura varía según la operación."
+              }
+            },
+            "required": ["operacion", "params"]
+          }
+        },
+        {
+          "name": "report_generator",
+          "description": "Genera un resumen financiero estructurado a partir de datos ya calculados. Usar DESPUÉS de calculator cuando el usuario pide un resumen, reporte o recomendación detallada.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "tipo_reporte": {
+                "type": "string",
+                "description": "Tipo de reporte a generar",
+                "enum": ["resumen_mensual", "comparativa_sabores", "recomendacion_precio", "analisis_canal"]
+              },
+              "datos": {
+                "type": "object",
+                "description": "Datos financieros pre-calculados por el tool calculator."
+              }
+            },
+            "required": ["tipo_reporte", "datos"]
+          }
+        }
+      ]
+    }
+  ]
+}

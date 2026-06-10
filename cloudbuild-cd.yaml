@@ -1,0 +1,47 @@
+steps:
+  - id: "deploy-sheets-reader"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "gcloud"
+    args: ["functions", "deploy", "bf-sheets-reader", "--gen2", "--runtime=python312", "--region=${_REGION}", "--source=./cloud_functions/sheets_reader", "--entry-point=main", "--trigger-http", "--no-allow-unauthenticated", "--memory=256Mi", "--timeout=30s"]
+
+  - id: "deploy-sheets-writer"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "gcloud"
+    args: ["functions", "deploy", "bf-sheets-writer", "--gen2", "--runtime=python312", "--region=${_REGION}", "--source=./cloud_functions/sheets_writer", "--entry-point=main", "--trigger-http", "--no-allow-unauthenticated", "--memory=256Mi", "--timeout=30s"]
+    waitFor: ["-"]
+
+  - id: "deploy-calculator"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "gcloud"
+    args: ["functions", "deploy", "bf-calculator", "--gen2", "--runtime=python312", "--region=${_REGION}", "--source=./cloud_functions/calculator", "--entry-point=main", "--trigger-http", "--no-allow-unauthenticated", "--memory=256Mi", "--timeout=30s"]
+    waitFor: ["-"]
+
+  - id: "deploy-report-generator"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "gcloud"
+    args: ["functions", "deploy", "bf-report-generator", "--gen2", "--runtime=python312", "--region=${_REGION}", "--source=./cloud_functions/report_generator", "--entry-point=main", "--trigger-http", "--no-allow-unauthenticated", "--memory=256Mi", "--timeout=30s"]
+    waitFor: ["-"]
+
+  - id: "deploy-orchestrator"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "gcloud"
+    args: ["run", "deploy", "brewfinance-orchestrator", "--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/orchestrator:${SHORT_SHA}", "--region=${_REGION}", "--platform=managed", "--no-allow-unauthenticated", "--memory=512Mi", "--min-instances=0", "--max-instances=3"]
+    waitFor: ["deploy-sheets-reader", "deploy-sheets-writer", "deploy-calculator", "deploy-report-generator"]
+
+  - id: "deploy-workflows"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        gcloud workflows deploy post-write-check --location=${_REGION} --source=./workflows/post_write_check.yaml
+        gcloud workflows deploy weekly-summary --location=${_REGION} --source=./workflows/weekly_summary.yaml
+        gcloud workflows deploy low-margin-alert --location=${_REGION} --source=./workflows/low_margin_alert.yaml
+    waitFor: ["deploy-orchestrator"]
+
+substitutions:
+  _REGION: "us-central1"
+  _REPO: "brewfinance"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

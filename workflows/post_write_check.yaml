@@ -1,0 +1,92 @@
+main:
+  params: [input]
+  steps:
+    - init:
+        assign:
+          - mes_actual: ${text.substring(time.format(sys.now(), "America/Mexico_City"), 0, 7)}
+          - base_url: ${sys.get_env("TOOLS_BASE_URL")}
+          - umbral_margen: 40
+
+    - read_monthly_sales:
+        try:
+          call: http.post
+          args:
+            url: ${base_url + "/api/v1/sheets/read"}
+            headers:
+              Content-Type: "application/json"
+            body:
+              request_id: ${"wf1-sales-" + string(sys.now())}
+              timestamp: ${time.format(sys.now())}
+              payload:
+                hoja: "Ventas"
+                filtros:
+                  mes: ${mes_actual}
+          result: sales_response
+        retry:
+          predicate: ${default_retry_predicate}
+          max_retries: 3
+          backoff:
+            initial_delay: 2
+            max_delay: 30
+            multiplier: 2
+
+    - read_costs:
+        try:
+          call: http.post
+          args:
+            url: ${base_url + "/api/v1/sheets/read"}
+            headers:
+              Content-Type: "application/json"
+            body:
+              request_id: ${"wf1-costs-" + string(sys.now())}
+              timestamp: ${time.format(sys.now())}
+              payload:
+                hoja: "Costos"
+          result: costs_response
+        retry:
+          predicate: ${default_retry_predicate}
+          max_retries: 3
+          backoff:
+            initial_delay: 2
+            max_delay: 30
+            multiplier: 2
+
+    - calculate_margins:
+        try:
+          call: http.post
+          args:
+            url: ${base_url + "/api/v1/calc"}
+            headers:
+              Content-Type: "application/json"
+            body:
+              request_id: ${"wf1-calc-" + string(sys.now())}
+              timestamp: ${time.format(sys.now())}
+              payload:
+                operacion: "margen_por_sabor"
+                params:
+                  ventas: ${sales_response.body.data.registros}
+                  costos: ${costs_response.body.data.registros}
+          result: margin_response
+        retry:
+          predicate: ${default_retry_predicate}
+          max_retries: 2
+          backoff:
+            initial_delay: 1
+            max_delay: 10
+            multiplier: 2
+
+    - return_result:
+        return:
+          status: "completed"
+          margenes: ${margin_response.body.data.resultado}
+
+default_retry_predicate:
+  params: [e]
+  steps:
+    - check:
+        switch:
+          - condition: ${e.code == 429 or e.code == 502 or e.code == 503}
+            return: true
+        next: no
+    - no:
+        return: false

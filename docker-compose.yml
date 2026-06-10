@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.orchestrator
+    container_name: brewfinance-orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - TOOLS_BASE_URL=http://mock-sheets-api:8001
+      - LOGGING_URL=http://logging-service:8002
+      - MAX_REACT_STEPS=5
+      - DEFAULT_MODEL=gemini-2.5-flash
+      - FALLBACK_MODEL=gemini-2.5-pro
+      - API_KEY=dev-key-123
+    env_file:
+      - .env
+    depends_on:
+      mock-sheets-api:
+        condition: service_healthy
+      logging-service:
+        condition: service_healthy
+    networks:
+      - brewfinance-net
+    restart: unless-stopped
+
+  mock-sheets-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mock-api
+    container_name: brewfinance-mock-sheets
+    ports:
+      - "8001:8001"
+    networks:
+      - brewfinance-net
+    restart: unless-stopped
+
+  logging-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.logging
+    container_name: brewfinance-logging
+    ports:
+      - "8002:8002"
+    volumes:
+      - logs-data:/app/logs
+    networks:
+      - brewfinance-net
+    restart: unless-stopped
+
+networks:
+  brewfinance-net:
+    driver: bridge
+
+volumes:
+  logs-data:
